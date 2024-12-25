@@ -16,7 +16,60 @@ struct AIPiece {
     int         numberOfMoves;
 };
 
-void    capture(char** map, int y, int x, int& numOfHumans, class AI& ai);
+void    capture(char**, int, int, int&, class AI&);
+int     calculateCapturePoint(char**, int, int);
+
+class Node {
+public:
+    Node(vector<Node*>    &allNodes, char** map, int depth) {
+        allNodes.push_back(this);
+        this->map = map;
+        this->depth = depth;
+    }
+
+    bool    isSameMap(char **map) {
+        for (int i = 0; i < 8; i++)
+            for (int j = 0; j < 8; j++)
+                if (this->map[i][j] != map[i][j])
+                    return false;
+        return true;
+    }
+
+    char** getMap() {
+        return map;
+    }
+
+    ~Node() {
+        for (int i = 0; i < 8; i++)
+            delete[] map[i];
+        delete[] map;
+    }
+
+private:
+    char**                  map;
+    int                     depth;
+    int                     point;
+};
+
+class Game {
+public:
+    Game(char** map) {
+        head = new Node(allNodes, map, 0);
+        currentNode = head;
+    }
+
+    char** getMap() {
+        return currentNode->getMap();
+    }
+    ~Game() {
+        for (Node* node : allNodes)
+            delete node;
+    }
+private:
+    vector<Node*>    allNodes;
+    Node* head;
+    Node* currentNode;
+};
 
 class AI {
 public:
@@ -116,6 +169,82 @@ private:
     }
 };
 
+int calculateCapturePoint(char** map, int y, int x) {
+    vector<Coordinates> elementsToBeDeleted;
+    int tmpX1 = x, tmpX2 = x, tmpY1 = y, tmpY2 = y;
+
+    for (; tmpX1 > 0 && map[y][tmpX1 - 1] != 'E'; tmpX1--);
+    for (; tmpX2 < 6 && map[y][tmpX2 + 1] != 'E'; tmpX2++);
+    for (; tmpY1 > 0 && map[tmpY1 - 1][x] != 'E'; tmpY1--);
+    for (; tmpY2 < 6 && map[tmpY2 + 1][x] != 'E'; tmpY2++);
+    if (tmpX1 == 0 && tmpX2 == 6) {
+        for (int i = 0; i < 7; i++)
+            elementsToBeDeleted.push_back({ i, y });
+    }
+    else if (tmpX1 == 0) {
+        for (tmpX2--; tmpX2 > -1; tmpX2--)
+            if (map[y][tmpX2] != map[y][tmpX2 + 1])
+                break;
+        for (; tmpX2 > -1; tmpX2--)
+            elementsToBeDeleted.push_back({ tmpX2, y });
+    }
+    else if (tmpX2 == 6) {
+        for (tmpX1++; tmpX1 < 7; tmpX1++)
+            if (map[y][tmpX1] != map[y][tmpX1 - 1])
+                break;
+        for (; tmpX1 < 7; tmpX1++)
+            elementsToBeDeleted.push_back({ tmpX1, y });
+    }
+    else {
+        for (tmpX1++; tmpX1 < tmpX2; tmpX1++)
+            if (map[y][tmpX1] != map[y][tmpX1 - 1])
+                break;
+        for (tmpX2--; tmpX2 >= tmpX1; tmpX2--)
+            if (map[y][tmpX2] != map[y][tmpX2 + 1])
+                break;
+        for (; tmpX1 <= tmpX2; tmpX1++)
+            elementsToBeDeleted.push_back({ tmpX1, y });
+    }
+
+    if (tmpY1 == 0 && tmpY2 == 6) {
+        for (int i = 0; i < 7; i++)
+            elementsToBeDeleted.push_back({ x, i });
+    }
+    else if (tmpY1 == 0) {
+        for (tmpY2--; tmpY2 > -1; tmpY2--)
+            if (map[tmpY2][x] != map[tmpY2 + 1][x])
+                break;
+        for (; tmpY2 > -1; tmpY2--)
+            elementsToBeDeleted.push_back({ x, tmpY2 });
+    }
+    else if (tmpY2 == 6) {
+        for (tmpY1++; tmpY1 < 7; tmpY1++)
+            if (map[tmpY1][x] != map[tmpY1 - 1][x])
+                break;
+        for (; tmpY1 < 7; tmpY1++)
+            elementsToBeDeleted.push_back({ x, tmpY1 });
+    }
+    else {
+        for (tmpY1++; tmpY1 < tmpY2; tmpY1++)
+            if (map[tmpY1][x] != map[tmpY1 - 1][x])
+                break;
+        for (tmpY2--; tmpY2 >= tmpY1; tmpY2--)
+            if (map[tmpY2][x] != map[tmpY2 + 1][x])
+                break;
+        for (; tmpY1 <= tmpY2; tmpY1++)
+            elementsToBeDeleted.push_back({ x, tmpY1 });
+    }
+    int point = 0;
+    for (Coordinates element : elementsToBeDeleted) {
+        if (map[element.y][element.x] == 'H')
+            point++;
+        else if (map[element.y][element.x] == 'A')
+            point--;
+        map[element.y][element.x] = 'E';
+    }
+    return point;
+}
+
 void    capture(char** map, int y, int x, int& numOfHumans, AI& ai) {
     vector<Coordinates> elementsToBeDeleted;
     int tmpX1 = x, tmpX2 = x, tmpY1 = y, tmpY2 = y;
@@ -175,15 +304,12 @@ void    capture(char** map, int y, int x, int& numOfHumans, AI& ai) {
         for (; tmpY1 <= tmpY2; tmpY1++)
             elementsToBeDeleted.push_back({ x, tmpY1});
     }
-    int size = (int)elementsToBeDeleted.size();
-    for (int i = 0; i < size; i++) {
-        if (map[elementsToBeDeleted[i].y][elementsToBeDeleted[i].x] == 'H') {
-            map[elementsToBeDeleted[i].y][elementsToBeDeleted[i].x] = 'E';
+    for (Coordinates element : elementsToBeDeleted) {
+        if (map[element.y][element.x] == 'H')
             numOfHumans--;
-        } else if (map[elementsToBeDeleted[i].y][elementsToBeDeleted[i].x] == 'A') {
-            map[elementsToBeDeleted[i].y][elementsToBeDeleted[i].x] = 'E';
-            ai.deleteAIPiece(elementsToBeDeleted[i].y, elementsToBeDeleted[i].x);
-        }
+        else if (map[element.y][element.x] == 'A')
+            ai.deleteAIPiece(element.y, element.x);
+        map[element.y][element.x] = 'E';
     }
 }
 
@@ -206,6 +332,7 @@ int main() {
                                 new char [7] {'H', 'E', 'E', 'E', 'E', 'E', 'A'},
                                 new char [7] {'E', 'E', 'E', 'E', 'E', 'E', 'E'},
                                 new char [7] {'H', 'E', 'E', 'E', 'E', 'E', 'A'}};
+    Game game(map);
     Image image = LoadImage("Background.png");
     Texture2D background = LoadTextureFromImage(image);
     UnloadImage(image);
@@ -333,8 +460,5 @@ int main() {
             break;
     }
     CloseWindow();
-    for (int i = 0; i < 7; i++)
-        delete[] map[i];
-    delete[] map;
     return 0;
 }
