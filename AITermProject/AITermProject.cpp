@@ -187,7 +187,7 @@ void    capture(char** map, int y, int x, int& numOfHumans, AI& ai) {
     }
 }
 
-bool    control(int& winStatus, const int& numOfHumans, const int& numOfAis) {
+static bool    control(int& winStatus, const int& numOfHumans, const int& numOfAis) {
     if ((numOfHumans == 0 && numOfAis == 0) || (numOfHumans == 1 && numOfAis == 1))
         return true;
     if (numOfHumans == 0)
